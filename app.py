@@ -7,10 +7,11 @@ app = Flask(__name__)
 # 🔐 Admin password
 ADMIN_PASSWORD = "Sindhu@Memories2026💜"
 
-# 🌐 Database URL from Render
+# 🌐 Database URL
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# ✅ FIXED CONNECTION (SSL required)
+
+# ✅ Safe connection (with SSL)
 def get_connection():
     return psycopg2.connect(DATABASE_URL, sslmode='require')
 
@@ -34,8 +35,11 @@ def init_db():
     conn.close()
 
 
-# ✅ Run once when app starts
-init_db()
+# ✅ DEBUG SAFE INIT (IMPORTANT)
+try:
+    init_db()
+except Exception as e:
+    print("DB ERROR:", e)
 
 
 # 🏠 Home Page
@@ -58,17 +62,21 @@ def message(name):
         sender = request.form.get('sender')
         msg = request.form.get('message')
 
-        conn = get_connection()
-        cur = conn.cursor()
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
 
-        cur.execute(
-            "INSERT INTO messages (person, sender, message) VALUES (%s, %s, %s)",
-            (name, sender, msg)
-        )
+            cur.execute(
+                "INSERT INTO messages (person, sender, message) VALUES (%s, %s, %s)",
+                (name, sender, msg)
+            )
 
-        conn.commit()
-        cur.close()
-        conn.close()
+            conn.commit()
+            cur.close()
+            conn.close()
+
+        except Exception as e:
+            print("INSERT ERROR:", e)
 
         return redirect('/?success=1')
 
@@ -84,14 +92,18 @@ def admin():
 
         if password == ADMIN_PASSWORD:
 
-            conn = get_connection()
-            cur = conn.cursor()
+            try:
+                conn = get_connection()
+                cur = conn.cursor()
 
-            cur.execute("SELECT person, sender, message FROM messages")
-            data = cur.fetchall()
+                cur.execute("SELECT person, sender, message FROM messages")
+                data = cur.fetchall()
 
-            cur.close()
-            conn.close()
+                cur.close()
+                conn.close()
+
+            except Exception as e:
+                return f"<h3>DB ERROR: {e}</h3>"
 
             # 🔄 Group messages
             messages = {}
