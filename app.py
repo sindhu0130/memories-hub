@@ -4,10 +4,10 @@ import psycopg2
 
 app = Flask(__name__)
 
-# 🔐 Admin password
+# 🔐 Admin Password
 ADMIN_PASSWORD = "Sindhu@Memories2026💜"
 
-# 🌐 PostgreSQL connection
+# 🌐 Database URL (from Render Environment)
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_connection():
@@ -33,13 +33,11 @@ def init_db():
     conn.close()
 
 
-# ⚡ Run DB setup once
-@app.before_first_request
-def setup():
-    init_db()
+# ✅ RUN DB INIT (Flask 3 fix)
+init_db()
 
 
-# 🏠 Home page
+# 🏠 Home Page
 @app.route('/')
 def home():
     friends = [
@@ -51,9 +49,10 @@ def home():
     return render_template('index.html', friends=friends)
 
 
-# 💌 Message page
+# 💌 Message Page
 @app.route('/message/<path:name>', methods=['GET', 'POST'])
 def message(name):
+
     if request.method == 'POST':
         sender = request.form.get('sender')
         msg = request.form.get('message')
@@ -75,7 +74,7 @@ def message(name):
     return render_template('message.html', name=name)
 
 
-# 🔐 Admin page
+# 🔐 Admin Page
 @app.route('/sindhu-private-access', methods=['GET', 'POST'])
 def admin():
 
@@ -83,6 +82,7 @@ def admin():
         password = request.form.get('password')
 
         if password == ADMIN_PASSWORD:
+
             conn = get_connection()
             cur = conn.cursor()
 
@@ -92,7 +92,7 @@ def admin():
             cur.close()
             conn.close()
 
-            # group messages
+            # 🔄 Group messages by person
             messages = {}
             for person, sender, msg in data:
                 if person not in messages:
