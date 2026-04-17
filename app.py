@@ -4,14 +4,15 @@ import psycopg2
 
 app = Flask(__name__)
 
-# 🔐 Admin Password
+# 🔐 Admin password
 ADMIN_PASSWORD = "Sindhu@Memories2026💜"
 
-# 🌐 Database URL (from Render Environment)
+# 🌐 Database URL from Render
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
+# ✅ FIXED CONNECTION (SSL required)
 def get_connection():
-    return psycopg2.connect(DATABASE_URL)
+    return psycopg2.connect(DATABASE_URL, sslmode='require')
 
 
 # 🧱 Create table
@@ -33,7 +34,7 @@ def init_db():
     conn.close()
 
 
-# ✅ RUN DB INIT (Flask 3 fix)
+# ✅ Run once when app starts
 init_db()
 
 
@@ -92,7 +93,7 @@ def admin():
             cur.close()
             conn.close()
 
-            # 🔄 Group messages by person
+            # 🔄 Group messages
             messages = {}
             for person, sender, msg in data:
                 if person not in messages:
