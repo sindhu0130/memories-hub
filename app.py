@@ -1,20 +1,27 @@
 from flask import Flask, render_template, request, redirect
-import sqlite3
+import os
+import psycopg2
 
 app = Flask(__name__)
 
 # 🔐 Admin password
 ADMIN_PASSWORD = "Sindhu@Memories2026💜"
 
+# 🌐 PostgreSQL connection
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# 🗄️ Create database
+def get_connection():
+    return psycopg2.connect(DATABASE_URL)
+
+
+# 🧱 Create table
 def init_db():
-    conn = sqlite3.connect('messages.db')
-    c = conn.cursor()
+    conn = get_connection()
+    cur = conn.cursor()
 
-    c.execute('''
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             person TEXT,
             sender TEXT,
             message TEXT
@@ -22,12 +29,17 @@ def init_db():
     ''')
 
     conn.commit()
+    cur.close()
     conn.close()
 
-init_db()
+
+# ⚡ Run DB setup once
+@app.before_first_request
+def setup():
+    init_db()
 
 
-# 🏠 HOME PAGE
+# 🏠 Home page
 @app.route('/')
 def home():
     friends = [
@@ -39,32 +51,31 @@ def home():
     return render_template('index.html', friends=friends)
 
 
-# 💌 MESSAGE PAGE
+# 💌 Message page
 @app.route('/message/<path:name>', methods=['GET', 'POST'])
 def message(name):
-
     if request.method == 'POST':
         sender = request.form.get('sender')
         msg = request.form.get('message')
 
-        conn = sqlite3.connect('messages.db')
-        c = conn.cursor()
+        conn = get_connection()
+        cur = conn.cursor()
 
-        c.execute(
-            "INSERT INTO messages (person, sender, message) VALUES (?, ?, ?)",
+        cur.execute(
+            "INSERT INTO messages (person, sender, message) VALUES (%s, %s, %s)",
             (name, sender, msg)
         )
 
         conn.commit()
+        cur.close()
         conn.close()
 
-        # ✅ redirect with success popup
         return redirect('/?success=1')
 
     return render_template('message.html', name=name)
 
 
-# 🔐 HIDDEN ADMIN (GROUPED MESSAGES)
+# 🔐 Admin page
 @app.route('/sindhu-private-access', methods=['GET', 'POST'])
 def admin():
 
@@ -72,13 +83,16 @@ def admin():
         password = request.form.get('password')
 
         if password == ADMIN_PASSWORD:
-            conn = sqlite3.connect('messages.db')
-            c = conn.cursor()
-            c.execute("SELECT person, sender, message FROM messages")
-            data = c.fetchall()
+            conn = get_connection()
+            cur = conn.cursor()
+
+            cur.execute("SELECT person, sender, message FROM messages")
+            data = cur.fetchall()
+
+            cur.close()
             conn.close()
 
-            # ✅ GROUP BY PERSON
+            # group messages
             messages = {}
             for person, sender, msg in data:
                 if person not in messages:
@@ -93,6 +107,6 @@ def admin():
     return render_template('login.html')
 
 
-# ▶️ RUN APP
+# ▶ Run locally
 if __name__ == '__main__':
     app.run(debug=True)
