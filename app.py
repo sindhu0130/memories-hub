@@ -1,17 +1,17 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, send_file
 import os
 import psycopg2
 
 app = Flask(__name__)
 
-# 🔐 Admin password
+# 🔐 Admin Password
 ADMIN_PASSWORD = "Sindhu@Memories2026💜"
 
 # 🌐 Database URL
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
-# ✅ Safe connection (with SSL)
+# ✅ DB Connection
 def get_connection():
     return psycopg2.connect(DATABASE_URL, sslmode='require')
 
@@ -35,7 +35,7 @@ def init_db():
     conn.close()
 
 
-# ✅ DEBUG SAFE INIT (IMPORTANT)
+# ✅ Run DB init safely
 try:
     init_db()
 except Exception as e:
@@ -120,6 +120,59 @@ def admin():
     return render_template('login.html')
 
 
+# 📄 DOWNLOAD PDF (PER PERSON)
+@app.route('/download-pdf/<name>')
+def download_pdf_person(name):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        "SELECT sender, message FROM messages WHERE person = %s",
+        (name,)
+    )
+
+    data = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    import io
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+
+    y = 750
+
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(50, y, f"Messages for {name}")
+    y -= 30
+
+    pdf.setFont("Helvetica", 10)
+
+    for sender, msg in data:
+        text = f"{sender}: {msg}"
+
+        pdf.drawString(50, y, text)
+        y -= 20
+
+        if y < 50:
+            pdf.showPage()
+            y = 750
+
+    pdf.save()
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"{name}.pdf",
+        mimetype='application/pdf'
+    )
+
+
 # ▶ Run locally
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True) 
